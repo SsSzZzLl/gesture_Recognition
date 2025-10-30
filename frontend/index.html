@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势控制系统（8人数据集）</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>手势控制系统</h1>
+
+        <div class="video-container">
+            <video id="webcam" autoplay playsinline muted></video>
+            <canvas id="overlay" class="overlay"></canvas>
+        </div>
+
+        <div class="control-panel">
+            <div class="model-select">
+                <label>模型选择：</label>
+                <select id="model-select">
+                    <option value="base_cnn.onnx">基础CNN（快速）</option>
+                    <option value="attention_cnn.onnx">注意力CNN（精确）</option>
+                    <option value="resnet_mini.onnx">迷你ResNet（平衡）</option>
+                </select>
+                <button id="load-model">加载模型</button>
+            </div>
+
+            <div class="status">
+                <p>模型状态：<span id="model-status">未加载</span></p>
+                <p>当前动作：<span id="action-label">--</span></p>
+                <p>置信度：<span id="confidence">--</span></p>
+            </div>
+        </div>
+
+        <div class="debug-panel" id="debug-panel">
+            <h3>调试信息</h3>
+            <p>帧率：<span id="fps">0</span> FPS</p>
+            <p>推理耗时：<span id="infer-time">0</span> ms</p>
+            <p>预处理耗时：<span id="preprocess-time">0</span> ms</p>
+        </div>
+
+        <div class="action-map">
+            <h3>手势-操作映射</h3>
+            <table>
+                <tr><th>手势动作</th><th>系统操作</th></tr>
+                <tr><td>move</td><td>移动鼠标</td></tr>
+                <tr><td>leftclick</td><td>左键点击</td></tr>
+                <tr><td>rightclick</td><td>右键点击</td></tr>
+                <tr><td>back</td><td>浏览器后退</td></tr>
+                <tr><td>scrollup</td><td>页面上滚</td></tr>
+                <tr><td>scrolldown</td><td>页面下滚</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ONNX Runtime -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/dist/ort.min.js"></script>
+    <!-- 主逻辑 -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

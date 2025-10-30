@@ -1,0 +1,17 @@
+{
+  "model_name": "resnet_mini",
+  "device": "cuda",
+  "batch_size": 16,
+  "epochs": 55,
+  "lr": 0.0004,
+  "weight_decay": 1e-05,
+  "loss": "cross_entropy",
+  "lr_milestones": [
+    20,
+    40
+  ],
+  "early_stop_patience": 9,
+  "data_root": "E:\\DoooooooooG\\gesture_Recognition\\data\\processed",
+  "exp_root": "E:\\DoooooooooG\\gesture_Recognition\\backend\\experiments\\results",
+  "num_workers": 0
+}

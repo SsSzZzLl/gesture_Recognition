@@ -1,0 +1,8 @@
+{
+  "move": 0,
+  "leftclick": 1,
+  "rightclick": 2,
+  "back": 3,
+  "scrollup": 4,
+  "scrolldown": 5
+}
