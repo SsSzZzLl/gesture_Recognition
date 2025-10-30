@@ -9,108 +9,93 @@
 import os
 import sys
 import torch
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
-import cv2
 import json
+from torch.utils.data import DataLoader
 
-# 配置路径
-current_path = os.path.abspath(__file__)
-experiments_dir = os.path.dirname(current_path)
-backend_dir = os.path.dirname(experiments_dir)
-sys.path.append(backend_dir)
+# 添加项目根目录到系统路径（关键：定位到 gesture_Recognition 根目录）
+current_dir = os.path.dirname(os.path.abspath(__file__))  # 当前脚本路径：backend/experiments
+backend_dir = os.path.dirname(current_dir)  # backend 目录
+root_dir = os.path.dirname(backend_dir)  # 根目录：gesture_Recognition
+sys.path.append(root_dir)  # 将根目录添加到系统路径
 
-from models.base_cnn import BaseCNN
-from training.trainer import Trainer
+# 导入模块（此时能正确找到根目录下的模块）
+from backend.data.dataset import GestureDataset, train_transform, val_transform  # 注意路径前缀 backend.
+from backend.models.base_cnn import BaseCNN
+from backend.training.trainer import Trainer
+from backend.evaluate.visualize import plot_confusion_matrix
 
-# 自定义数据集
-class GestureDataset(Dataset):
-    def __init__(self, data_root, split="train", transform=None):
-        self.data_root = data_root
-        self.split = split
-        self.transform = transform
-        self.img_paths, self.labels = self._load_data()
-        with open(os.path.join(data_root, "classes.json"), "r", encoding="utf-8") as f:
-            self.class_names = json.load(f)
-
-    def _load_data(self):
-        txt_path = os.path.join(self.data_root, f"{self.split}.txt")
-        with open(txt_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        img_paths = []
-        labels = []
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            img_path, label = line.split()
-            img_paths.append(os.path.join(self.data_root, img_path))
-            labels.append(int(label))
-        return img_paths, labels
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.img_paths[idx]
-        label = self.labels[idx]
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if self.transform:
-            img = self.transform(img)
-        return img, label
-
-    def get_class_names(self):
-        return self.class_names
 
 def main():
-    # 配置路径
-    data_root = os.path.join(os.path.dirname(backend_dir), "data", "processed")
-    exp_root = os.path.join(experiments_dir, "results")
-    os.makedirs(exp_root, exist_ok=True)
+    # 数据路径：根目录下的 data/processed
+    data_root = os.path.join(root_dir, "data", "processed")  # gesture_Recognition/data/processed
+    save_root = os.path.join(backend_dir, "experiments", "results", "base_cnn_optimized")
+    os.makedirs(save_root, exist_ok=True)
 
     # 设备配置
-    device_obj = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"使用设备: {device}")
 
-    # 数据预处理（修复像素均值问题）
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize((128, 128)),
-        transforms.RandomHorizontalFlip(p=0.5),  # 基础增强
-        transforms.ToTensor(),  # 必须：将0-255转为0-1
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 标准归一化
-    ])
+    # 加载数据集（此时会读取根目录下的 train.txt/val.txt）
+    train_dataset = GestureDataset(
+        data_root,
+        split="train",
+        transform=train_transform
+    )
+    val_dataset = GestureDataset(
+        data_root,
+        split="val",
+        transform=val_transform
+    )
+    class_weights = train_dataset.get_class_weights()
+    class_names = train_dataset.get_class_names()
 
-    # 加载数据集
-    train_dataset = GestureDataset(data_root, split="train", transform=transform)
-    val_dataset = GestureDataset(data_root, split="val", transform=transform)
-    print(f"✅ 数据集加载成功：训练集{len(train_dataset)}样本，验证集{len(val_dataset)}样本")
-    print(f"✅ 类别列表：{train_dataset.get_class_names()}")
+    # 数据加载器
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=4
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=32,
+        shuffle=False,
+        num_workers=4
+    )
 
     # 初始化模型
-    model = BaseCNN(num_classes=6)
-    print(f"✅ 模型初始化成功：基础CNN（{sum(p.numel() for p in model.parameters()):,} 参数量）")
+    model = BaseCNN(num_classes=len(class_names)).to(device)
 
     # 训练配置
-    config = {
-        "model_name": "base_cnn",
-        "device": str(device_obj),
-        "batch_size": 16,
-        "epochs": 50,
-        "lr": 0.0005,
-        "weight_decay": 1e-5,
-        "loss": "cross_entropy",
-        "lr_milestones": [20, 40],
-        "early_stop_patience": 8,
-        "data_root": data_root,
-        "exp_root": exp_root,
-        "num_workers": 0
-    }
+    trainer = Trainer(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        device=device,
+        class_weights=class_weights,
+        save_dir=save_root,
+        model_name="基础CNN",
+        epochs=50,
+        patience=8
+    )
 
-    # 开始训练
-    trainer = Trainer(model, train_dataset, val_dataset, config)
-    print(f"✅ 模型和训练器初始化成功，开始训练（设备：{device_obj}）")
-    trainer.run()
+    # 启动训练
+    logs, val_preds, val_labels = trainer.run()
+
+    # 保存训练日志
+    with open(os.path.join(save_root, "训练日志.json"), "w", encoding="utf-8") as f:
+        json.dump(logs, f, ensure_ascii=False, indent=2)
+
+    # 绘制混淆矩阵
+    plot_confusion_matrix(
+        y_true=val_labels,
+        y_pred=val_preds,
+        class_names=class_names,
+        save_path=os.path.join(save_root, "基础CNN_混淆矩阵.png")
+    )
+
+    print(f"基础CNN实验完成，结果保存至: {save_root}")
+
 
 if __name__ == "__main__":
     main()
