@@ -6,13 +6,6 @@
 # @Software : PyCharm
 
 
-# Author : SsSzZzLl
-# -*- coding = utf-8 -*-
-# @Time : 2025/10/30 下午3:15
-# @Site :
-# @file : metrics.py
-# @Software : PyCharm
-
 import torch
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix

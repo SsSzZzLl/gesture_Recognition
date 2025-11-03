@@ -28,7 +28,7 @@ from backend.evaluate.visualize import plot_confusion_matrix
 def main():
     # 数据路径：根目录下的 data/processed
     data_root = os.path.join(root_dir, "data", "processed")  # gesture_Recognition/data/processed
-    save_root = os.path.join(backend_dir, "experiments", "results", "base_cnn_optimized")
+    save_root = os.path.join(backend_dir, "experiments", "results", "base_cnn_optimized_v3")
     os.makedirs(save_root, exist_ok=True)
 
     # 设备配置
