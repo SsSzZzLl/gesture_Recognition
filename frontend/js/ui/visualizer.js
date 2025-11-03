@@ -1,49 +1,38 @@
-export class Visualizer {
-    constructor(overlayId) {
-        this.overlay = document.getElementById(overlayId);
-        this.ctx = this.overlay.getContext('2d');
+export const Visualizer = {
+  /**
+   * 在视频上绘制识别结果
+   * @param {string} videoId - 视频元素ID
+   * @param {string} label - 手势标签
+   * @param {number} confidence - 置信度
+   */
+  draw(videoId, label, confidence) {
+    const video = document.getElementById(videoId);
+    if (!video) return;
+
+    // 创建或获取画布
+    let canvas = document.getElementById('visualizer');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'visualizer';
+      canvas.style.position = 'absolute';
+      canvas.style.top = video.offsetTop + 'px';
+      canvas.style.left = video.offsetLeft + 'px';
+      canvas.style.pointerEvents = 'none';  // 允许点击穿透
+      video.parentNode.appendChild(canvas);
     }
 
-    /**
-     * 绘制实时手势信息
-     * @param {string} action - 手势动作名
-     * @param {string} confidence - 置信度(%)
-     * @param {number} width - 视频宽度
-     * @param {number} height - 视频高度
-     */
-    drawGestureInfo(action, confidence, width, height) {
-        // 清空画布
-        this.ctx.clearRect(0, 0, width, height);
+    // 绘制结果
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);  // 清除上一帧
 
-        // 绘制信息面板
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(10, 10, 220, 70);
-
-        // 绘制文本
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '16px Segoe UI';
-        this.ctx.fillText(`动作: ${action}`, 20, 35);
-        this.ctx.fillText(`置信度: ${confidence}%`, 20, 60);
-
-        // 绘制置信度进度条
-        const barWidth = 200;
-        const barHeight = 8;
-        const progress = Math.min(100, parseFloat(confidence)) / 100;
-
-        this.ctx.fillStyle = '#eee';
-        this.ctx.fillRect(20, 70, barWidth, barHeight);
-
-        this.ctx.fillStyle = progress > 70 ? '#4CAF50' : '#FF9800';
-        this.ctx.fillRect(20, 70, barWidth * progress, barHeight);
-    }
-
-    /**
-     * 调整画布尺寸
-     * @param {number} width - 宽度
-     * @param {number} height - 高度
-     */
-    resize(width, height) {
-        this.overlay.width = width;
-        this.overlay.height = height;
-    }
-}
+    // 绘制信息面板
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+    ctx.fillRect(10, 10, 220, 60);
+    ctx.fillStyle = 'black';
+    ctx.font = '16px Arial bold';
+    ctx.fillText(`手势：${label}`, 20, 35);
+    ctx.fillText(`置信度：${confidence}%`, 20, 60);
+  }
+};

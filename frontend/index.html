@@ -1,62 +1,137 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手势控制系统（8人数据集）</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <title>手势识别交互系统</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* 基础样式 */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+    #webcam-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      margin: 20px auto;
+      border: 2px solid #333;
+    }
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .info-panel {
+      margin: 20px auto;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      text-align: left;
+    }
+    .error {
+      color: #ff0000;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>手势控制系统</h1>
+  <div class="container">
+    <h1>手势识别交互系统</h1>
 
-        <div class="video-container">
-            <video id="webcam" autoplay playsinline muted></video>
-            <canvas id="overlay" class="overlay"></canvas>
-        </div>
-
-        <div class="control-panel">
-            <div class="model-select">
-                <label>模型选择：</label>
-                <select id="model-select">
-                    <option value="base_cnn.onnx">基础CNN（快速）</option>
-                    <option value="attention_cnn.onnx">注意力CNN（精确）</option>
-                    <option value="resnet_mini.onnx">迷你ResNet（平衡）</option>
-                </select>
-                <button id="load-model">加载模型</button>
-            </div>
-
-            <div class="status">
-                <p>模型状态：<span id="model-status">未加载</span></p>
-                <p>当前动作：<span id="action-label">--</span></p>
-                <p>置信度：<span id="confidence">--</span></p>
-            </div>
-        </div>
-
-        <div class="debug-panel" id="debug-panel">
-            <h3>调试信息</h3>
-            <p>帧率：<span id="fps">0</span> FPS</p>
-            <p>推理耗时：<span id="infer-time">0</span> ms</p>
-            <p>预处理耗时：<span id="preprocess-time">0</span> ms</p>
-        </div>
-
-        <div class="action-map">
-            <h3>手势-操作映射</h3>
-            <table>
-                <tr><th>手势动作</th><th>系统操作</th></tr>
-                <tr><td>move</td><td>移动鼠标</td></tr>
-                <tr><td>leftclick</td><td>左键点击</td></tr>
-                <tr><td>rightclick</td><td>右键点击</td></tr>
-                <tr><td>back</td><td>浏览器后退</td></tr>
-                <tr><td>scrollup</td><td>页面上滚</td></tr>
-                <tr><td>scrolldown</td><td>页面下滚</td></tr>
-            </table>
-        </div>
+    <div id="webcam-container">
+      <video id="webcam" autoplay playsinline></video>
     </div>
 
-    <!-- ONNX Runtime -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/dist/ort.min.js"></script>
-    <!-- 主逻辑 -->
-    <script type="module" src="js/main.js"></script>
+    <div class="info-panel">
+      <div>当前手势：<strong id="gesture-label">初始化中...</strong></div>
+      <div>置信度：<span id="confidence">--</span></div>
+      <div>帧率：<span id="fps">--</span> FPS</div>
+      <div id="error-message" class="error"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Webcam } from './webcam.js';
+    import { Preprocess } from './preprocess.js';
+    import { ONNXInfer } from './onnx_infer.js';
+    import { GestureCtrl } from './gesture_ctrl.js';
+    import { DebugPanel } from './debug_panel.js';
+    import { Visualizer } from './visualizer.js';
+
+    // 错误显示函数
+    const showError = (message) => {
+      const elem = document.getElementById('error-message');
+      if (elem) elem.textContent = message || '未知错误';
+      console.error(message || '未知错误');
+    };
+
+    // 主函数
+    const main = async () => {
+      try {
+        // 初始化摄像头
+        await Webcam.init('webcam');
+
+        // 初始化模型
+        const modelPath = 'frontend/models/resnet_mini_best.onnx';
+        await ONNXInfer.init(modelPath);
+
+        // 推理循环控制变量
+        let frameCount = 0;
+        let lastTime = Date.now();
+
+        // 推理循环
+        const inferLoop = async () => {
+          try {
+            // 获取当前帧
+            const frame = Webcam.getCurrentFrame('webcam');
+            if (!frame) {
+              requestAnimationFrame(inferLoop);
+              return;
+            }
+
+            // 预处理
+            const inputTensor = Preprocess.process(frame);
+
+            // 模型推理
+            const result = await ONNXInfer.predict(inputTensor);
+
+            // 执行操作与更新UI
+            GestureCtrl.execute(result.label);
+            DebugPanel.updateLabel(result.label);
+            DebugPanel.updateConfidence(result.confidence);
+            Visualizer.draw('webcam', result.label, result.confidence);
+
+            // 计算帧率
+            frameCount++;
+            const now = Date.now();
+            if (now - lastTime >= 1000) {
+              const fps = frameCount / ((now - lastTime) / 1000);
+              DebugPanel.updateFPS(fps);
+              frameCount = 0;
+              lastTime = now;
+            }
+
+            // 继续循环
+            requestAnimationFrame(inferLoop);
+          } catch (err) {
+            showError(`推理循环错误：${err.message}`);
+            requestAnimationFrame(inferLoop);  // 出错后继续尝试
+          }
+        };
+
+        // 启动推理循环
+        inferLoop();
+
+      } catch (err) {
+        showError(`初始化失败：${err.message}`);
+      }
+    };
+
+    // 启动应用
+    main();
+  </script>
 </body>
 </html>

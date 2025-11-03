@@ -1,59 +1,51 @@
-export class Webcam {
-    constructor(videoId) {
-        this.video = document.getElementById(videoId);
-        this.isActive = false;
-        this.stream = null;
+export const Webcam = {
+  /**
+   * 初始化摄像头
+   * @param {string} videoId - 视频元素ID
+   * @returns {Promise<HTMLVideoElement>} 视频元素
+   */
+  async init(videoId) {
+    return new Promise((resolve, reject) => {
+      const video = document.getElementById(videoId);
+      if (!video) {
+        reject(new Error('未找到id为"webcam"的视频元素'));
+        return;
+      }
+
+      // 请求摄像头权限
+      navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false
+      })
+        .then(stream => {
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            video.play();
+            console.log('✅ 摄像头初始化成功');
+            resolve(video);
+          };
+        })
+        .catch(err => {
+          console.error('❌ 摄像头权限请求失败：', err);
+          reject(new Error('请允许摄像头权限（浏览器地址栏左侧可设置）'));
+        });
+    });
+  },
+
+  /**
+   * 获取当前视频帧
+   * @param {string} videoId - 视频元素ID
+   * @returns {HTMLCanvasElement|null} 包含当前帧的画布
+   */
+  getCurrentFrame(videoId) {
+    const video = document.getElementById(videoId);
+    if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) {
+      return null;
     }
-
-    async start(resolution = { width: 640, height: 480 }, fps = 15) {
-        try {
-            // 请求摄像头权限
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: resolution.width },
-                    height: { ideal: resolution.height },
-                    frameRate: { ideal: fps }
-                }
-            });
-            this.video.srcObject = this.stream;
-            this.isActive = true;
-
-            // 等待视频加载完成
-            return new Promise(resolve => {
-                this.video.onloadedmetadata = () => resolve(true);
-            });
-        } catch (err) {
-            console.error("摄像头启动失败：", err);
-            alert("请允许摄像头权限后重试");
-            return false;
-        }
-    }
-
-    stop() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.video.srcObject = null;
-            this.isActive = false;
-            this.stream = null;
-        }
-    }
-
-    captureFrame() {
-        if (!this.isActive) return null;
-
-        // 创建临时canvas捕获帧
-        const canvas = document.createElement('canvas');
-        canvas.width = this.video.videoWidth;
-        canvas.height = this.video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(this.video, 0, 0, canvas.width, canvas.height);
-        return canvas;
-    }
-
-    getResolution() {
-        return {
-            width: this.video.videoWidth,
-            height: this.video.videoHeight
-        };
-    }
-}
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    return canvas;
+  }
+};

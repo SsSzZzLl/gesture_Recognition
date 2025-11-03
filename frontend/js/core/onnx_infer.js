@@ -1,80 +1,69 @@
-import { preprocess } from './preprocess.js';
+import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/ort.es6.min.js';
 
-export class ONNXInfer {
-    constructor() {
-        this.session = null;  // ONNX Runtime会话
-        this.classes = [
-            "move", "leftclick", "rightclick",
-            "back", "scrollup", "scrolldown"
-        ];  // 与后端类别顺序一致
+export const ONNXInfer = {
+  session: null,  // 推理会话
+
+  /**
+   * 初始化模型
+   * @param {string} modelPath - 模型文件路径
+   * @returns {Promise<boolean>} 初始化是否成功
+   */
+  async init(modelPath) {
+    try {
+      console.log(`🚀 正在加载 ONNX 模型： ${modelPath}`);
+      // 检查模型文件是否存在
+      const response = await fetch(modelPath, { method: 'HEAD' });
+      if (response.ok) {
+        const fileSize = parseInt(response.headers.get('content-length') || 0);
+        console.log(`✅ 模型文件已找到，大小约：${(fileSize / (1024 * 1024)).toFixed(2)} MB`);
+      } else {
+        throw new Error(`模型文件不存在或无法访问：${modelPath}`);
+      }
+
+      // 创建推理会话
+      this.session = await ort.InferenceSession.create(modelPath, {
+        executionProviders: ['wasm'],  // 使用WebAssembly后端
+        graphOptimizationLevel: 'all'  // 启用所有图优化
+      });
+      console.log('✅ 模型加载成功（适配onnxruntime-web@1.23.0）');
+      return true;
+    } catch (err) {
+      console.error('❌ 模型加载失败：详细信息');
+      console.error('错误类型：', typeof err);
+      console.error('错误内容：', err);
+      throw new Error(`模型路径或版本不兼容：${modelPath}`);
+    }
+  },
+
+  /**
+   * 执行推理
+   * @param {Object} inputTensor - 输入张量
+   * @returns {Promise<Object>} 推理结果（标签和置信度）
+   */
+  async predict(inputTensor) {
+    if (!this.session) {
+      throw new Error('模型未初始化，请先调用init()');
     }
 
-    /**
-     * 加载ONNX模型
-     * @param {string} modelPath - 模型路径（如models/base_cnn.onnx）
-     * @returns {boolean} 加载成功/失败
-     */
-    async loadModel(modelPath) {
-        try {
-            // 配置推理选项（使用CPU）
-            const options = {
-                executionProviders: ['wasm'],  // 浏览器环境使用wasm
-                graphOptimizationLevel: 'all'
-            };
-            this.session = await ort.InferenceSession.create(modelPath, options);
-            return true;
-        } catch (err) {
-            console.error("模型加载失败：", err);
-            return false;
-        }
+    try {
+      // 创建ONNX张量
+      const input = new ort.Tensor('float32', inputTensor.data, inputTensor.shape);
+      // 执行推理
+      const outputs = await this.session.run({ input: input });
+      // 解析结果
+      const scores = outputs.output.data;
+      const maxIndex = scores.indexOf(Math.max(...scores));
+      const labelMap = [
+        'move', 'leftclick', 'rightclick',
+        'back', 'scrollup', 'scrolldown'
+      ];
+      return {
+        label: labelMap[maxIndex] || '未知',
+        confidence: Math.round(scores[maxIndex] * 100)
+      };
+    } catch (err) {
+      console.error('❌ 推理失败：', err);
+      throw new Error(`推理过程出错：${err.message}`);
     }
-
-    /**
-     * 推理单帧图像
-     * @param {HTMLCanvasElement} frameCanvas - 输入帧画布
-     * @returns {object} 推理结果（action: 动作名, confidence: 置信度(%), inferTime: 推理耗时(ms)）
-     */
-    async predict(frameCanvas) {
-        if (!this.session) return null;
-
-        try {
-            // 预处理
-            const { input, preprocessTime } = preprocess(frameCanvas);
-
-            // 构建输入张量
-            const tensor = new ort.Tensor('float32', input, [1, 3, 128, 128]);
-            const feeds = { input: tensor };
-
-            // 推理
-            const start = performance.now();
-            const results = await this.session.run(feeds);
-            const inferTime = performance.now() - start;
-
-            // 解析结果（取softmax后最大概率）
-            const output = results.output.data;
-            const softmax = this._softmax(output);
-            const maxIdx = softmax.indexOf(Math.max(...softmax));
-
-            return {
-                action: this.classes[maxIdx],
-                confidence: (softmax[maxIdx] * 100).toFixed(1),
-                inferTime,
-                preprocessTime
-            };
-        } catch (err) {
-            console.error("推理失败：", err);
-            return null;
-        }
-    }
-
-    /**
-     * Softmax激活函数
-     * @param {Float32Array} arr - 输入数组
-     * @returns {number[]} 归一化后的概率
-     */
-    _softmax(arr) {
-        const exp = arr.map(x => Math.exp(x));
-        const sum = exp.reduce((a, b) => a + b, 0);
-        return exp.map(x => x / sum);
-    }
-}
+  }
+};

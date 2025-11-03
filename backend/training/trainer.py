@@ -14,6 +14,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from tqdm import tqdm
+from backend.training.losses import LabelSmoothingLoss
 import numpy as np
 
 
@@ -38,10 +39,9 @@ class Trainer:
             'train_recall': [], 'val_recall': [],
             'train_f1': [], 'val_f1': []
         }
-        self.optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+        self.optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-3)
         self.scheduler = CosineAnnealingLR(self.optimizer, T_max=epochs)
-        self.criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
-
+        self.criterion = LabelSmoothingLoss(eps=0.1, reduction="mean")  # 启用标签平滑
     def _train_one_epoch(self):
         self.model.train()
         total_loss = 0.0

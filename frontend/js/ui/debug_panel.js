@@ -1,37 +1,28 @@
-export class DebugPanel {
-    constructor() {
-        this.fpsEl = document.getElementById('fps');
-        this.inferTimeEl = document.getElementById('infer-time');
-        this.preprocessTimeEl = document.getElementById('preprocess-time');
+export const DebugPanel = {
+  /**
+   * 更新FPS显示
+   * @param {number} fps - 帧率
+   */
+  updateFPS(fps) {
+    const elem = document.getElementById('fps');
+    if (elem) elem.textContent = fps.toFixed(1);
+  },
 
-        // FPS计算变量
-        this.frameCount = 0;
-        this.lastFpsTime = performance.now();
-    }
+  /**
+   * 更新置信度显示
+   * @param {number} confidence - 置信度（百分比）
+   */
+  updateConfidence(confidence) {
+    const elem = document.getElementById('confidence');
+    if (elem) elem.textContent = `${confidence}%`;
+  },
 
-    /**
-     * 更新帧率显示
-     */
-    updateFPS() {
-        this.frameCount++;
-        const now = performance.now();
-        const elapsed = now - this.lastFpsTime;
-
-        if (elapsed >= 1000) {  // 每秒更新一次
-            const fps = (this.frameCount / (elapsed / 1000)).toFixed(1);
-            this.fpsEl.textContent = fps;
-            this.frameCount = 0;
-            this.lastFpsTime = now;
-        }
-    }
-
-    /**
-     * 更新推理耗时显示
-     * @param {number} inferTime - 推理耗时(ms)
-     * @param {number} preprocessTime - 预处理耗时(ms)
-     */
-    updateTimes(inferTime, preprocessTime) {
-        this.inferTimeEl.textContent = inferTime.toFixed(1);
-        this.preprocessTimeEl.textContent = preprocessTime.toFixed(1);
-    }
-}
+  /**
+   * 更新手势标签显示
+   * @param {string} label - 手势标签
+   */
+  updateLabel(label) {
+    const elem = document.getElementById('gesture-label');
+    if (elem) elem.textContent = label;
+  }
+};

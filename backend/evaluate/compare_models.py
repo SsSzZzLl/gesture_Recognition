@@ -75,7 +75,7 @@ def main():
     # ---------------------- 配置参数（根据实际情况修改！）----------------------
     # 1. 三个模型的实验目录（训练后生成的结果目录）
     exp_dirs = {
-        "基础CNN": "E:/DoooooooooG/gesture_Recognition/backend/experiments/results/base_cnn_optimized",
+        "基础CNN": "E:/DoooooooooG/gesture_Recognition/backend/experiments/results/base_cnn_optimized_v3",
         "注意力CNN": "E:/DoooooooooG/gesture_Recognition/backend/experiments/results/attention_cnn_optimized",
         "迷你ResNet": "E:/DoooooooooG/gesture_Recognition/backend/experiments/results/resnet_mini_optimized"
     }
