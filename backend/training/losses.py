@@ -26,7 +26,7 @@ class FocalLoss(nn.Module):
 
 class LabelSmoothingLoss(nn.Module):
     """标签平滑（防止过拟合）"""
-    def __init__(self, eps=0.1, reduction="mean"):
+    def __init__(self, eps=0.1, reduction="batchmean"):  # 1. 默认值改为batchmean
         super().__init__()
         self.eps = eps
         self.reduction = reduction
@@ -35,4 +35,5 @@ class LabelSmoothingLoss(nn.Module):
         n_classes = inputs.size(1)
         one_hot = torch.zeros_like(inputs).scatter(1, targets.unsqueeze(1), 1)
         smoothed = one_hot * (1 - self.eps) + torch.ones_like(inputs) * self.eps / n_classes
+        # 2. 确保kl_div使用当前类的reduction参数（已默认是batchmean）
         return F.kl_div(F.log_softmax(inputs, dim=1), smoothed, reduction=self.reduction)
